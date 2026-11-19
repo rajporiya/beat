@@ -5,6 +5,27 @@ import { config } from "dotenv";
 
 config();
 
+const SEED_COVERS = [
+	"aashiqui_2.jpg", "aaya_sher.jpg", "alfaaz.jpg", "animal.jpg", "bari.jpg",
+	"casa_tupka.jpg", "finding_her.jpg", "ghost.jpg", "ghostface_killah.jpg",
+	"kabir_singh.jpg", "rathinamo.jpg", "rockstar.jpg", "samjho_na.jpg",
+	"yeh_prem_mol_liya.jpg", "yjhd.jpg", "young_stunners.jpg",
+];
+const SEED_AUDIO = [
+	"aashiqui_2.wav", "aaya_sher.wav", "alfaaz.wav", "animal.wav", "bari.wav",
+	"casa_tupka.wav", "finding_her.wav", "ghost.wav", "ghostface_killah.wav",
+	"kabir_singh.wav", "rathinamo.wav", "rockstar.wav", "samjho_na.wav",
+	"yeh_prem_mol_liya.wav", "yjhd.wav", "young_stunners.wav",
+];
+const SEED_GENRES = ["Pop", "Hip-Hop", "R&B", "Electronic", "Indie", "Rock"];
+
+const withRealAssets = (song, index) => ({
+	...song,
+	imageUrl: `/cover-images/${SEED_COVERS[index % SEED_COVERS.length]}`,
+	audioUrl: `/songs/${SEED_AUDIO[index % SEED_AUDIO.length]}`,
+	genre: SEED_GENRES[index % SEED_GENRES.length],
+});
+
 const seedDatabase = async () => {
 	try {
 		if (!process.env.MONGODB_URI) {
@@ -131,7 +152,7 @@ const seedDatabase = async () => {
 				plays: Math.floor(Math.random() * 5000),
 				duration: 17, // 0:17
 			},
-		]);
+		].map(withRealAssets));
 
 		// Create albums with references to song IDs
 		const albums = [

@@ -13,11 +13,15 @@ import path from 'path'
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import v1Routes from "./routes/v1.route.js"
+import subscriptionRoutes from './routes/subscription.route.js'
+import downloadRoutes from './routes/download.route.js'
+import podcastRoutes from './routes/podcast.route.js'
+import videoRoutes from './routes/video.route.js'
 
 dotenv.config()
 const app = express()
 const __dirname = path.resolve();
-const PORT = process.env.PORT || 4561
+const PORT = process.env.PORT || 1234
 
 app.use(
   cors({
@@ -35,7 +39,7 @@ app.use(fileUpload({
     createParentPath : true,
     limits : {
         fieldSize : 10 * 1024 * 1024, // max field size
-        fileSize : 50 * 1024 * 1024, // max file size
+        fileSize : Number(process.env.MAX_UPLOAD_MB || 100) * 1024 * 1024, // audio / video upload size
     }
 }))
 app.use("/api/user", userRoutes);
@@ -43,7 +47,11 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoute);
 app.use("/api/song", songRoutes);
 app.use("/api/album", albumRoutes);
+app.use("/api/podcast", podcastRoutes);
+app.use("/api/video", videoRoutes);
 app.use("/api/stats", stateRoutes);
+app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/downloads", downloadRoutes);
 app.get("/api/v1/health", (_req, res) => res.status(200).json({ success: true, message: "Music API is running" }));
 app.use("/api/v1", v1Routes);
 

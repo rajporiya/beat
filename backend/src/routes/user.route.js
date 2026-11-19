@@ -4,7 +4,7 @@ import { getAllUsers, getMyProfile, updateMyProfile, uploadMyAvatar, syncMyProfi
 const router = Router()
 
 // Profile routes must be declared before the generic "/" route
-router.post('/logout', protectRoute, logoutUser)
+router.post('/logout', logoutUser)
 router.post('/sync', protectRoute, syncMyProfile)
 router.get('/me', protectRoute, getMyProfile)
 router.patch('/me', protectRoute, updateMyProfile)

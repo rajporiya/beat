@@ -2,8 +2,57 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { Song } from "../models/song.models.js";
 import { User } from "../models/user.models.js";
+import { resolveUserPlan } from "../config/plans.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "beat_music_super_secure_jwt_secret_key_2026_spotify_clone";
+
+const NAME_PATTERN = /^[\p{L}][\p{L}\p{M} .'-]*$/u;
+const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+const getNameError = (value) => {
+    const name = String(value ?? "").trim();
+
+    if (!name) return "Please enter your full name";
+    if (name.length < 2) return "Name must be at least 2 characters";
+    if (name.length > 50) return "Name must be 50 characters or fewer";
+    if (!NAME_PATTERN.test(name)) {
+        return "Name can only contain letters, spaces, apostrophes, periods, and hyphens";
+    }
+    return null;
+};
+
+const getEmailError = (value) => {
+    const rawEmail = String(value ?? "");
+    const email = rawEmail.trim().toLowerCase();
+
+    if (!email) return "Please enter your email address";
+    if (email.length > 254) return "Email must be 254 characters or fewer";
+    if (/\s/.test(email)) return "Email cannot contain spaces";
+    if (!EMAIL_PATTERN.test(email)) return "Please provide a valid email address";
+
+    const [localPart, domain] = email.split("@");
+    if (localPart.length > 64) return "The part before @ must be 64 characters or fewer";
+    if (localPart.startsWith(".") || localPart.endsWith(".") || localPart.includes("..")) {
+        return "Please provide a valid email address";
+    }
+    if (domain.includes("..")) return "Please provide a valid email address";
+    if (domain.split(".").some((part) => !part || part.startsWith("-") || part.endsWith("-"))) {
+        return "Please provide a valid email address";
+    }
+    return null;
+};
+
+const getPasswordError = (value) => {
+    if (typeof value !== "string" || !value) return "Please create a password";
+    if (value.length < 8) return "Password must be at least 8 characters long";
+    if (value.length > 64) return "Password must be 64 characters or fewer";
+    if (/\s/.test(value)) return "Password cannot contain spaces";
+    if (!/[A-Z]/.test(value)) return "Password must include at least one uppercase letter";
+    if (!/[a-z]/.test(value)) return "Password must include at least one lowercase letter";
+    if (!/[0-9]/.test(value)) return "Password must include at least one number";
+    if (!/[^A-Za-z0-9\s]/.test(value)) return "Password must include at least one special character";
+    return null;
+};
 
 const generateToken = (userId, role) => {
     return jwt.sign({ id: userId, sub: userId, role }, JWT_SECRET, {
@@ -27,36 +76,42 @@ const safeUser = (user) => {
         imageUrl: user.imageUrl || "",
         role: isAdmin ? "admin" : (user.role || "user"),
         isAdmin: Boolean(isAdmin),
+        plan: resolveUserPlan(user),
+        planBillingCycle: user.planBillingCycle || "monthly",
+        planExpiresAt: user.planExpiresAt || null,
         createdAt: user.createdAt,
     };
 };
 
 export const register = async (req, res, next) => {
     try {
-        const { name, email, password, confirmPassword } = req.body;
+        const { name, email, password, confirmPassword } = req.body || {};
 
-        if (!name || !email || !password) {
-            return res.status(400).json({ message: "All fields are required" });
+        const nameError = getNameError(name);
+        if (nameError) {
+            return res.status(400).json({ message: nameError });
+        }
+
+        const emailError = getEmailError(email);
+        if (emailError) {
+            return res.status(400).json({ message: emailError });
+        }
+
+        const passwordError = getPasswordError(password);
+        if (passwordError) {
+            return res.status(400).json({ message: passwordError });
+        }
+
+        if (!confirmPassword) {
+            return res.status(400).json({ message: "Please re-enter your password" });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: "Passwords do not match" });
         }
 
         const trimmedName = String(name).trim();
         const trimmedEmail = String(email).trim().toLowerCase();
-
-        if (trimmedName.length < 2) {
-            return res.status(400).json({ message: "Name must be at least 2 characters" });
-        }
-
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-            return res.status(400).json({ message: "Please provide a valid email address" });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ message: "Password must be at least 6 characters long" });
-        }
-
-        if (confirmPassword && password !== confirmPassword) {
-            return res.status(400).json({ message: "Passwords do not match" });
-        }
 
         const existingUser = await User.findOne({ email: trimmedEmail });
         if (existingUser) {
@@ -100,10 +155,15 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.body || {};
 
         if (!email || !password) {
             return res.status(400).json({ message: "Email and password are required" });
+        }
+
+        const emailError = getEmailError(email);
+        if (emailError) {
+            return res.status(400).json({ message: emailError });
         }
 
         const trimmedEmail = String(email).trim().toLowerCase();
