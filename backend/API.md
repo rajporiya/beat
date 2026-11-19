@@ -13,7 +13,7 @@ All new endpoints use the `/api/v1` prefix and return `{ success, message, data 
 | GET/POST/PATCH/DELETE | `/songs/:id` | Read public; writes admin | Song CRUD |
 | POST | `/songs/:id/play` | Authenticated | Records a play and history |
 | POST/DELETE/GET | `/songs/:id/like` | Authenticated | Like management/status |
-| GET | `/search?q=` | Public | Songs, artists, albums, playlists |
+| GET | `/search?q=&limit=` | Public | Songs (title, artist, genre), artists, albums, public playlists |
 | GET | `/home` | Public | Home feed data |
 | GET | `/albums`, `/albums/:id` | Public | Album catalog/detail |
 | GET | `/artists`, `/artists/:id` | Public | Artist catalog/detail |
@@ -21,9 +21,28 @@ All new endpoints use the `/api/v1` prefix and return `{ success, message, data 
 | GET/POST | `/playlists`, `/playlists/:id` | Public reads / auth writes | Playlist catalog and creation |
 | PATCH/DELETE | `/playlists/:id` | Owner/admin | Playlist changes |
 | POST/DELETE | `/playlists/:id/songs` | Owner/admin | Add or remove songs |
-| GET | `/library`, `/library/liked`, `/library/recently-played` | Authenticated | Personal library |
+| GET | `/playlists?mine=true` | Authenticated | The caller's own playlists |
+| GET | `/library`, `/library/liked`, `/library/recently-played` | Authenticated | Personal library (liked songs newest first) |
+| GET | `/genres` | Public | Distinct song genres for browse tiles |
+| GET | `/follows` | Authenticated | Artists the caller follows |
+| PUT/DELETE | `/follows/artists/:name` | Authenticated | Follow or unfollow an artist |
 | POST/GET/DELETE | `/history/:songId`, `/history` | Authenticated | Listening history |
 | POST | `/uploads/avatar|song|album-cover|artist-cover` | Admin | Multipart field: `file` (10 MB max) |
+
+## Podcasts, videos and admin uploads
+
+The admin panel uses the `/api/admin` routes with `Authorization: Bearer <token>` (or the login cookie). Multipart uploads accept files up to `MAX_UPLOAD_MB` (default 100 MB) and are stored on Cloudinary.
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/podcast`, `/api/podcast/:id` | Public | Published podcast episodes |
+| GET | `/api/video`, `/api/video/:id` | Public | Published videos |
+| GET | `/api/admin/podcasts` | Admin | All episodes, including drafts |
+| POST/PUT/DELETE | `/api/admin/podcasts`, `/api/admin/podcasts/:id` | Admin | Multipart fields: `title`, `showName`, `audioFile`, `coverFile`, `videoFile`, `thumbnailFile`, `status`, ... |
+| GET | `/api/admin/videos` | Admin | All videos, including drafts |
+| POST/PUT/DELETE | `/api/admin/videos`, `/api/admin/videos/:id` | Admin | Multipart fields: `title`, `creator`, `videoFile`, `thumbnailFile`, `status`, ... |
+| PUT | `/api/admin/songs/:id` | Admin | Edit song metadata and optionally replace `audioFile`, `imageFile`, `videoFile` |
+| GET | `/api/admin/overview` | Admin | Recent podcasts/videos and media totals |
 
 Example success response:
 

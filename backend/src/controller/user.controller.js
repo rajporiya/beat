@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import { User } from "../models/user.models.js";
 import cloudinary from "../lib/cludinary.js";
 
@@ -161,18 +162,27 @@ export const updateMyProfile = async (req, res, next) => {
 }
 
 // POST /api/user/avatar — upload/replace the avatar image (stored on Cloudinary)
+const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"];
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const cloudinaryConfigured = () =>
+    Boolean(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+
 export const uploadMyAvatar = async (req, res, next) => {
+    const file = req.files?.avatar;
     try {
-        if (!req.files?.avatar || Array.isArray(req.files.avatar)) {
+        if (!file || Array.isArray(file)) {
             return res.status(400).json({ message: "Please select an image to upload" });
         }
-        const file = req.files.avatar;
-
-        if (!file.mimetype.startsWith("image/")) {
-            return res.status(400).json({ message: "Avatar must be an image file" });
+        if (!AVATAR_TYPES.includes(String(file.mimetype).toLowerCase())) {
+            return res.status(400).json({ message: "Avatar must be a PNG, JPG, WebP, GIF or AVIF image" });
         }
-        if (file.size > 5 * 1024 * 1024) {
+        if (file.size > AVATAR_MAX_BYTES) {
             return res.status(400).json({ message: "Image must be smaller than 5MB" });
+        }
+        if (!cloudinaryConfigured()) {
+            return res.status(503).json({
+                message: "Photo uploads aren't set up on the server yet. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to backend/.env.",
+            });
         }
 
         const user = await findCurrentUser(getUserId(req));
@@ -180,14 +190,25 @@ export const uploadMyAvatar = async (req, res, next) => {
             return res.status(409).json({ message: "Profile not initialized yet — reload the page once to sync it" });
         }
 
-        const result = await cloudinary.uploader.upload(file.tempFilePath, {
-            folder: "beat-music/avatars",
-            resource_type: "image",
-            transformation: [
-                { width: 400, height: 400, crop: "fill", gravity: "face" },
-                { quality: "auto", fetch_format: "auto" },
-            ],
-        });
+        let result;
+        try {
+            result = await cloudinary.uploader.upload(file.tempFilePath, {
+                folder: "beat-music/avatars",
+                resource_type: "image",
+                transformation: [
+                    { width: 400, height: 400, crop: "fill", gravity: "face" },
+                    { quality: "auto", fetch_format: "auto" },
+                ],
+            });
+        } catch (uploadError) {
+            console.log("error uploadMyAvatar (cloudinary)", uploadError.message);
+            const unreadable = uploadError.http_code === 400;
+            return res.status(unreadable ? 400 : 502).json({
+                message: unreadable
+                    ? "We couldn't read that image. Try a different photo."
+                    : "Couldn't upload your photo right now. Please try again in a moment.",
+            });
+        }
 
         user.imageUrl = result.secure_url;
         await user.save({ validateBeforeSave: false });
@@ -195,6 +216,9 @@ export const uploadMyAvatar = async (req, res, next) => {
         res.status(200).json(user);
     } catch (error) {
         console.log("error uploadMyAvatar", error.message);
-        next(error)
+        next(error);
+    } finally {
+        const uploaded = [req.files?.avatar].flat().filter((item) => item?.tempFilePath);
+        await Promise.all(uploaded.map((item) => fs.unlink(item.tempFilePath).catch(() => {})));
     }
 }
