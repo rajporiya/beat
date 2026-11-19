@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import AddToPlaylistModal from "@/components/AddToPlaylistModal";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { usePlayStore } from "@/stores/usePlayerStore";
-import { Clock, Pause, Play } from "lucide-react";
-import { useEffect } from "react";
+import { Clock, Pause, Play, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import type { Song as SongType } from "@/types";
 
   export const formateDuration = (second: number) => {
   if (!Number.isFinite(second) || second < 0) second = 0;
@@ -17,6 +19,7 @@ const AlbumPage = () => {
   const { albumId } = useParams<{ albumId: string }>();
   const { fetchAlbumId, curruntAlbum, isLoading, err } = useMusicStore();
   const  { currentSong, isPlaying,playerAlbum, togglePlay, setCurrentSong}= usePlayStore()
+  const [playlistSong, setPlaylistSong] = useState<SongType | null>(null);
 
   useEffect(() => {
     if (albumId) fetchAlbumId(albumId);
@@ -143,7 +146,21 @@ const handlePlayAlbums = ()=>{
                       <div>{song.artist}</div>
                     </div>
                     <div className="flex items-center">{song.createdAt.split("T")[0]}</div>
-                    <div className="flex items-center">{formateDuration(song.duration)}</div>
+                    <div className="flex items-center justify-between">
+                      <span>{formateDuration(song.duration)}</span>
+                      <button
+                        type="button"
+                        title="Add to playlist"
+                        aria-label={`Add ${song.title} to playlist`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setPlaylistSong(song);
+                        }}
+                        className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                      >
+                        <Plus className="h-4 w-4 text-zinc-400 hover:text-white" />
+                      </button>
+                    </div>
                   </div>
                 )})}
               </div>
@@ -151,6 +168,12 @@ const handlePlayAlbums = ()=>{
           </div>
         </div>
       </ScrollArea>
+
+      {/* Add-to-playlist modal for any song in this album */}
+      <AddToPlaylistModal
+        song={playlistSong}
+        onClose={() => setPlaylistSong(null)}
+      />
     </div>
   );
 };

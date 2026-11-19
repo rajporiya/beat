@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import AddToPlaylistModal from "@/components/AddToPlaylistModal";
 import { formateDuration } from "@/pages/home/AlbumPage";
 import { usePlayStore } from "@/stores/usePlayerStore";
 import {
@@ -13,6 +14,7 @@ import {
   SkipBack,
   SkipForward,
   Volume1,
+  Plus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -23,6 +25,7 @@ const PlayBackControl = () => {
   const { currentSong, togglePlay, isPlaying, playNext, playPrevious } =
     usePlayStore();
   const [volume, setVolume] = useState(75);
+  const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const durationSongRef = useRef<string | null>(null);
@@ -97,7 +100,18 @@ const PlayBackControl = () => {
                 className="size-12 shrink-0 rounded object-cover sm:size-14"
               />
               <div className="min-w-0 leading-tight">
-                <p className="truncate text-sm font-medium text-white hover:underline">{currentSong.title}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-sm font-medium text-white hover:underline">{currentSong.title}</p>
+                  <button
+                    type="button"
+                    title="Add to playlist"
+                    aria-label={`Add ${currentSong.title} to playlist`}
+                    onClick={() => setIsPlaylistModalOpen(true)}
+                    className="grid size-6 shrink-0 place-items-center rounded-full text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <Plus className="size-4" />
+                  </button>
+                </div>
                 <p className="mt-1 hidden truncate text-xs text-zinc-400 hover:text-white hover:underline sm:block">{currentSong.artist}</p>
               </div>
             </>
@@ -134,6 +148,12 @@ const PlayBackControl = () => {
           </div>
         </div>
       </div>
+
+      {/* Add-to-playlist modal for the song currently playing */}
+      <AddToPlaylistModal
+        song={isPlaylistModalOpen ? currentSong : null}
+        onClose={() => setIsPlaylistModalOpen(false)}
+      />
     </footer>
   );
 };
