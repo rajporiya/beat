@@ -42,10 +42,9 @@ export const FOOTER_SECTIONS: FooterSection[] = [
   {
     title: "BeatMusic Plans",
     links: [
-      { label: "Premium Standard", href: "/info/premium" },
-      { label: "Premium Platinum", href: "/info/premium-platinum" },
-      { label: "Premium Student", href: "/info/premium-student" },
-      { label: "BeatMusic Free", href: "/info/free" },
+      { label: "Basic plan", href: "/plans" },
+      { label: "Premium plan", href: "/plans" },
+      { label: "Pro plan", href: "/plans" },
     ],
   },
 ];

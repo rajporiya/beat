@@ -1,5 +1,7 @@
-import { useState } from "react";
 import { usePlayStore } from "@/stores/usePlayerStore";
+import { useFollowStore } from "@/stores/useFollowStore";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useNavigate } from "react-router-dom";
 import { Play, Check, Plus } from "lucide-react";
 import { SPOTIFY_POPULAR_ARTISTS } from "@/data/spotifyHomeData";
 import { PODCAST_EPISODES } from "@/data/spotifyBrowseData";
@@ -8,20 +10,31 @@ import type { Song } from "@/types";
 
 export default function FollowingSection() {
   const { currentSong, setCurrentSong, togglePlay, isPlaying } = usePlayStore();
+  const followedArtists = useFollowStore((state) => state.artists);
+  const toggleFollow = useFollowStore((state) => state.toggleFollow);
+  const user = useAuthStore((state) => state.user);
+  const navigate = useNavigate();
 
-  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({
-    "Arijit Singh": true,
-    "Pritam": true,
-    "Jay Shetty": true,
-    "David Goggins": true,
-    "Ray William Johnson": true,
+  const followedCards = followedArtists.map((name) => {
+    const known = SPOTIFY_POPULAR_ARTISTS.find((artist) => artist.name === name);
+    return known ?? {
+      id: `followed-${name}`,
+      name,
+      role: "Artist",
+      imageUrl: getFallbackArtwork(name),
+    };
   });
+  const recommended = SPOTIFY_POPULAR_ARTISTS.filter(
+    (artist) => !followedArtists.includes(artist.name),
+  );
+  const displayedArtists = [...followedCards, ...recommended].slice(0, 6);
 
-  const toggleFollow = (name: string) => {
-    setFollowingMap((prev) => ({
-      ...prev,
-      [name]: !prev[name],
-    }));
+  const handleFollow = (name: string) => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    void toggleFollow(name);
   };
 
   const handlePlayArtist = (name: string, imageUrl: string) => {
@@ -61,8 +74,8 @@ export default function FollowingSection() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {SPOTIFY_POPULAR_ARTISTS.slice(0, 6).map((artist) => {
-            const isFollowing = followingMap[artist.name] ?? false;
+          {displayedArtists.map((artist) => {
+            const isFollowing = followedArtists.includes(artist.name);
             const isCurrent =
               currentSong?.artist.toLowerCase().includes(artist.name.toLowerCase()) && isPlaying;
 
@@ -103,7 +116,7 @@ export default function FollowingSection() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleFollow(artist.name);
+                    handleFollow(artist.name);
                   }}
                   className={`mt-3 px-3 py-1 rounded-full text-xs font-bold transition-colors flex items-center gap-1 ${
                     isFollowing

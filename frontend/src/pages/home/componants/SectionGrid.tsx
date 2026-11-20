@@ -1,5 +1,5 @@
 import SectionGridSkeleton from "@/components/skeleton/SectionGridSkeleton";
-import { getFallbackArtwork } from "@/lib/songArtwork";
+import SongArtwork from "@/components/music/SongArtwork";
 import { usePlayStore } from "@/stores/usePlayerStore";
 import type { Song } from "@/types";
 import PlayButton from "./PlayButton";
@@ -50,18 +50,13 @@ const SectionGrid = ({ title, songs, isLoading, onShowAll }: SectionGridProps) =
               onClick={() => handleCardClick(song)}
               className="group relative p-3 sm:p-3.5 rounded-lg bg-transparent hover:bg-[#181818] transition-all duration-200 cursor-pointer flex flex-col"
             >
-              <div className="relative aspect-square w-full rounded-md shadow-lg overflow-hidden bg-[#242424] mb-3">
-                <img
-                  src={song.imageUrl}
-                  onError={(event) => {
-                    event.currentTarget.src = getFallbackArtwork(song.title);
-                  }}
-                  alt={`${song.title} cover`}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                />
+              <SongArtwork
+                song={song}
+                className="aspect-square w-full rounded-md shadow-lg overflow-hidden bg-[#242424] mb-3"
+                imageClassName="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              >
                 <PlayButton song={song} />
-              </div>
+              </SongArtwork>
 
               <h3
                 className={`font-semibold text-sm sm:text-base truncate group-hover:underline ${

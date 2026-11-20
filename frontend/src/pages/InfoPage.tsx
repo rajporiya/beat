@@ -50,7 +50,7 @@ export const InfoPage: React.FC = () => {
         {/* Right Nav Links */}
         <nav className="flex items-center gap-5 sm:gap-7 text-sm font-bold tracking-tight">
           <Link
-            to="/info/premium"
+            to="/plans"
             className="text-white hover:text-[#1db954] transition-colors hidden sm:inline"
           >
             Premium plans
@@ -836,13 +836,12 @@ function renderTopicContent(slug: string) {
               <span className="text-xs font-bold uppercase tracking-wider text-[#1db954]">Premium Individual</span>
               <h3 className="font-bold text-black text-xl">$10.99 / month</h3>
               <p className="text-xs text-zinc-600">Ad-free music listening, offline downloads, unlimited skips, high quality audio.</p>
-              <button
-                type="button"
-                onClick={() => alert("Redirecting to Premium Checkout...")}
-                className="w-full py-2.5 rounded-full bg-black text-white hover:bg-[#1db954] hover:text-black font-bold text-xs transition-colors"
+              <Link
+                to="/plans"
+                className="block w-full py-2.5 rounded-full bg-black text-center text-white hover:bg-[#1db954] hover:text-black font-bold text-xs transition-colors"
               >
                 Get Premium
-              </button>
+              </Link>
             </div>
           </div>
         </div>

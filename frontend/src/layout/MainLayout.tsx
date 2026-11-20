@@ -6,6 +6,7 @@ import PlayBackControl from "./componants/PlayBackControl";
 import { useEffect, useState } from "react";
 import MobileNav from "./componants/MobileNav";
 import { Topbar } from "@/components/c/Topbar";
+import UpgradeModal from "@/components/UpgradeModal";
 
 import { ChevronLeft } from "lucide-react";
 
@@ -96,6 +97,7 @@ const MainLayout = () => {
       </div>
 
       <PlayBackControl />
+      <UpgradeModal />
       <MobileNav />
     </div>
   );

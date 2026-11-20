@@ -60,7 +60,7 @@ export default function PopularArtists({
           return (
             <Link
               key={artist.id || artist.name}
-              to={`/artist/${artist.name.toLowerCase().replaceAll(" ", "-")}`}
+              to={`/artist/${encodeURIComponent(artist.name)}`}
               className="group relative p-3 sm:p-3.5 rounded-lg bg-transparent hover:bg-[#181818] transition-all duration-200 cursor-pointer flex flex-col"
             >
               <div className="relative aspect-square w-full rounded-full shadow-lg overflow-hidden bg-[#242424] mb-3">
