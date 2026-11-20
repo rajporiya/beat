@@ -140,7 +140,7 @@ const PlanCard = ({ definition, billing, currentPlan, isChanging, signedIn, onSe
                 ≈ ₹{Math.round(price / 12).toLocaleString("en-IN")}/month · billed yearly
               </p>
             ) : (
-              <p className="mt-1 text-[11px] text-zinc-400">Cancel anytime · demo checkout</p>
+              <p className="mt-1 text-[11px] text-zinc-400">Cancel anytime · secure checkout</p>
             )}
           </div>
         </div>
@@ -370,7 +370,7 @@ export default function PlansPage() {
         </div>
 
         <p className="mt-4 text-center text-[11px] text-zinc-500">
-          Demo checkout — no real payment is charged. Plans can be changed or canceled at any time.
+          Payments are processed securely by Razorpay. Plans can be changed or canceled at any time.
         </p>
 
         {/* Comparison table */}
@@ -484,6 +484,11 @@ export default function PlansPage() {
 
             {localError && <p className="mt-3 text-xs text-red-400">{localError}</p>}
 
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2.5 text-[11px] text-zinc-400">
+              <ShieldCheck className="size-4 shrink-0 text-[#1ed760]" />
+              <span>You will be redirected to Razorpay's secure checkout to pay by card, UPI or netbanking.</span>
+            </div>
+
             <button
               type="button"
               onClick={handlePay}
@@ -496,10 +501,11 @@ export default function PlansPage() {
               )}
             >
               {isChanging ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}
-              {isChanging ? "Activating..." : `Pay ${formatPrice(billing === "monthly" ? checkoutPlan.prices.monthly : checkoutPlan.prices.yearly)} (demo)`}
+              {isChanging ? "Opening Razorpay..." : `Pay ${formatPrice(billing === "monthly" ? checkoutPlan.prices.monthly : checkoutPlan.prices.yearly)}`}
             </button>
-            <p className="mt-2 text-center text-[10px] text-zinc-500">
-              This is a demo. No card is charged.
+            <p className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-zinc-500">
+              <ShieldCheck className="size-3" />
+              Secured by Razorpay · 256-bit encryption
             </p>
           </div>
         </div>
