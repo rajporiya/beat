@@ -10,8 +10,13 @@ import QuickAccessGrid from "./home/componants/QuickAccessGrid";
 import DailyMixCard from "./home/componants/DailyMixCard";
 import PodcastCard from "./home/componants/PodcastCard";
 import PodcastVideoModal from "./home/componants/PodcastVideoModal";
+import VideoCard from "./home/componants/VideoCard";
 import FollowingSection from "./home/componants/FollowingSection";
 import { Footer } from "@/components/c/Footer";
+import AdBanner from "@/components/AdBanner";
+import { getFallbackArtwork } from "@/lib/songArtwork";
+import { formatDate, formatDurationLong } from "@/lib/media";
+import type { Podcast, VideoMedia } from "@/types";
 import {
   SPOTIFY_TRENDING_SONGS,
   SPOTIFY_POPULAR_ARTISTS,
@@ -25,7 +30,40 @@ import {
   type PodcastEpisode,
 } from "@/data/spotifyBrowseData";
 
-type FilterTab = "All" | "Music" | "Podcasts" | "Following";
+type FilterTab = "All" | "Music" | "Podcasts" | "Videos" | "Following";
+
+const PODCAST_THEMES: PodcastEpisode["cardTheme"][] = ["blue", "purple", "green", "cobalt", "dark"];
+
+const podcastToEpisode = (podcast: Podcast, index: number): PodcastEpisode => ({
+  id: podcast._id,
+  title: podcast.title,
+  showName: podcast.showName,
+  subtitle: `▶ ${podcast.videoUrl ? "Video" : "Audio"} • ${podcast.showName}`,
+  publishDate: formatDate(podcast.publishDate || podcast.createdAt),
+  duration: formatDurationLong(podcast.duration),
+  description: podcast.description || `${podcast.showName}${podcast.category ? ` • ${podcast.category}` : ""}`,
+  cardTheme: PODCAST_THEMES[index % PODCAST_THEMES.length],
+  showAvatarUrl: podcast.coverUrl || podcast.videoThumbnailUrl || getFallbackArtwork(podcast.showName),
+  videoThumbnailUrl: podcast.videoThumbnailUrl || podcast.coverUrl || getFallbackArtwork(podcast.title),
+  videoUrl: podcast.videoUrl || undefined,
+  audioUrl: podcast.audioUrl,
+  isManaged: true,
+});
+
+const videoToEpisode = (video: VideoMedia): PodcastEpisode => ({
+  id: video._id,
+  title: video.title,
+  showName: video.creator,
+  subtitle: `▶ Video • ${video.creator}`,
+  publishDate: formatDate(video.publishedAt || video.createdAt),
+  duration: formatDurationLong(video.duration),
+  description: video.description || `A video from ${video.creator}.`,
+  cardTheme: "dark",
+  showAvatarUrl: getFallbackArtwork(video.creator),
+  videoThumbnailUrl: video.thumbnailUrl || getFallbackArtwork(video.title),
+  videoUrl: video.videoUrl,
+  audioUrl: "",
+});
 
 const HomePage = () => {
   const { user } = useUser();
@@ -38,6 +76,10 @@ const HomePage = () => {
     fetchFeatureSong,
     fetchMadeForYouSong,
     fetchTrendingSong,
+    fetchPodcasts,
+    fetchVideos,
+    podcasts,
+    videos,
     isLoading,
     madeForYouSongs,
     trendingSong,
@@ -49,7 +91,13 @@ const HomePage = () => {
     fetchFeatureSong();
     fetchMadeForYouSong();
     fetchTrendingSong();
-  }, [fetchFeatureSong, fetchMadeForYouSong, fetchTrendingSong]);
+    fetchPodcasts();
+    fetchVideos();
+  }, [fetchFeatureSong, fetchMadeForYouSong, fetchTrendingSong, fetchPodcasts, fetchVideos]);
+
+  const apiPodcastEpisodes = useMemo(() => podcasts.map(podcastToEpisode), [podcasts]);
+  const podcastEpisodes = apiPodcastEpisodes.length ? apiPodcastEpisodes : PODCAST_EPISODES;
+  const adminVideos = useMemo(() => videos.filter((video) => video.status === "published"), [videos]);
 
   // Combine fetched songs with showcase items
   const displayTrendingSongs = useMemo(() => {
@@ -79,26 +127,13 @@ const HomePage = () => {
     }
   }, [initalizeQueue, queue.length, displayTrendingSongs, displayAlbums]);
 
-  // Compute filter chips based on user instructions:
-  // - Default / All: [All, Music, Podcasts]
-  // - If clicked Music: [All, Music, Following, Podcasts]
-  // - If clicked Podcasts: [All, Music, Podcasts, Following]
-  // - If clicked Following: [All, Music, Following, Podcasts]
+  // Primary navigation chips. Videos only appear once the admin publishes one.
   const currentChips: FilterTab[] = useMemo(() => {
-    if (activeTab === "All") {
-      return ["All", "Music", "Podcasts"];
-    }
-    if (activeTab === "Music") {
-      return ["All", "Music", "Following", "Podcasts"];
-    }
-    if (activeTab === "Podcasts") {
-      return ["All", "Music", "Podcasts", "Following"];
-    }
-    if (activeTab === "Following") {
-      return ["All", "Music", "Following", "Podcasts"];
-    }
-    return ["All", "Music", "Podcasts"];
-  }, [activeTab]);
+    const chips: FilterTab[] = ["All", "Music", "Podcasts"];
+    if (adminVideos.length) chips.push("Videos");
+    chips.push("Following");
+    return chips;
+  }, [adminVideos.length]);
 
   return (
     <main className="flex h-full flex-col overflow-hidden bg-[#121212] select-none">
@@ -126,6 +161,7 @@ const HomePage = () => {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="px-5 py-4 sm:px-7 space-y-9">
+          <AdBanner />
           {/* ========================================================= */}
           {/* VIEW: MUSIC (Matching Image 2)                            */}
           {/* ========================================================= */}
@@ -193,12 +229,11 @@ const HomePage = () => {
           {/* ========================================================= */}
           {activeTab === "Podcasts" && (
             <div className="space-y-9 animate-in fade-in duration-200">
-              {/* Row 1: 3-column layout under headers "Episodes to try" */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {PODCAST_EPISODES.map((ep) => (
+                {podcastEpisodes.map((ep) => (
                   <div key={ep.id} className="flex flex-col">
                     <h3 className="text-sm font-bold text-zinc-300 mb-3 px-1">
-                      Episodes to try
+                      {apiPodcastEpisodes.length ? "Latest episodes" : "Episodes to try"}
                     </h3>
                     <PodcastCard
                       episode={ep}
@@ -208,20 +243,53 @@ const HomePage = () => {
                 ))}
               </div>
 
-              {/* Row 2: 3-column layout under individual headers (Similar to your interests / Videos you might like) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {SECOND_ROW_PODCASTS.map((item) => (
-                  <div key={item.id} className="flex flex-col">
-                    <h3 className="text-sm font-bold text-zinc-300 mb-3 px-1">
-                      {item.columnTitle}
-                    </h3>
-                    <PodcastCard
-                      episode={item.episode}
-                      onOpenVideo={(episode) => setSelectedVideoPodcast(episode)}
-                    />
-                  </div>
-                ))}
+              {!apiPodcastEpisodes.length && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {SECOND_ROW_PODCASTS.map((item) => (
+                    <div key={item.id} className="flex flex-col">
+                      <h3 className="text-sm font-bold text-zinc-300 mb-3 px-1">
+                        {item.columnTitle}
+                      </h3>
+                      <PodcastCard
+                        episode={item.episode}
+                        onOpenVideo={(episode) => setSelectedVideoPodcast(episode)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* VIEW: VIDEOS (Admin-uploaded video library)               */}
+          {/* ========================================================= */}
+          {activeTab === "Videos" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="flex items-end justify-between">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Watch</span>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Video episodes</h2>
+                </div>
+                <span className="text-xs font-semibold text-zinc-500">{adminVideos.length} videos</span>
               </div>
+
+              {adminVideos.length ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {adminVideos.map((video) => (
+                    <VideoCard
+                      key={video._id}
+                      video={video}
+                      onPlay={(item) => setSelectedVideoPodcast(videoToEpisode(item))}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-white/10 py-16 text-center">
+                  <p className="font-bold text-white">No videos published yet</p>
+                  <p className="mt-1 text-sm text-zinc-500">Admin-uploaded videos will appear here.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -281,7 +349,7 @@ const HomePage = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {PODCAST_EPISODES.map((ep) => (
+                  {podcastEpisodes.map((ep) => (
                     <PodcastCard
                       key={ep.id}
                       episode={ep}
@@ -290,6 +358,34 @@ const HomePage = () => {
                   ))}
                 </div>
               </section>
+
+              {/* Section: Video library (only when the admin has published videos) */}
+              {adminVideos.length > 0 && (
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight hover:underline cursor-pointer">
+                      Videos for you
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("Videos")}
+                      className="text-xs sm:text-sm font-bold text-zinc-400 hover:text-white hover:underline transition-colors cursor-pointer"
+                    >
+                      Show all
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {adminVideos.slice(0, 3).map((video) => (
+                      <VideoCard
+                        key={video._id}
+                        video={video}
+                        onPlay={(item) => setSelectedVideoPodcast(videoToEpisode(item))}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {/* Section: Trending songs */}
               <SectionGrid
@@ -326,7 +422,7 @@ const HomePage = () => {
 
 // Sub-component for individual card in "More like The Rish Mix"
 import PlayButton from "./home/componants/PlayButton";
-import { getFallbackArtwork } from "@/lib/songArtwork";
+import SongArtwork from "@/components/music/SongArtwork";
 import type { Song } from "@/types";
 
 function SectionGridItem({ song }: { song: Song }) {
@@ -346,18 +442,13 @@ function SectionGridItem({ song }: { song: Song }) {
       onClick={handleCardClick}
       className="group relative p-3 sm:p-3.5 rounded-lg bg-[#181818]/60 hover:bg-[#222222] transition-all duration-200 cursor-pointer flex flex-col"
     >
-      <div className="relative aspect-square w-full rounded-md shadow-lg overflow-hidden bg-[#242424] mb-3">
-        <img
-          src={song.imageUrl}
-          onError={(event) => {
-            event.currentTarget.src = getFallbackArtwork(song.title);
-          }}
-          alt={`${song.title} cover`}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          loading="lazy"
-        />
+      <SongArtwork
+        song={song}
+        className="aspect-square w-full rounded-md shadow-lg overflow-hidden bg-[#242424] mb-3"
+        imageClassName="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+      >
         <PlayButton song={song} />
-      </div>
+      </SongArtwork>
 
       <h3
         className={`font-semibold text-sm sm:text-base truncate group-hover:underline ${

@@ -1,4 +1,5 @@
 import { axiosInstance } from "@/lib/axios";
+import { prepareAvatarImage } from "@/lib/avatar";
 import { create } from "zustand";
 
 interface Profile {
@@ -8,6 +9,9 @@ interface Profile {
   email: string;
   clerkId: string;
   role: string;
+  plan?: string;
+  planBillingCycle?: string;
+  planExpiresAt?: string | null;
   createdAt: string;
 }
 
@@ -17,6 +21,7 @@ interface UserProfileStore {
   isUpdating: boolean;
   isUploadingAvatar: boolean;
   error: string | null;
+  avatarError: string | null;
 
   fetchProfile: () => Promise<void>;
   syncProfile: (clerkData: { firstName?: string | null; lastName?: string | null; imageUrl?: string; email?: string | null }) => Promise<boolean>;
@@ -32,6 +37,7 @@ export const useUserProfileStore = create<UserProfileStore>((set) => ({
   isUpdating: false,
   isUploadingAvatar: false,
   error: null,
+  avatarError: null,
 
   fetchProfile: async () => {
     set({ isProfileLoading: true, error: null });
@@ -82,19 +88,18 @@ export const useUserProfileStore = create<UserProfileStore>((set) => ({
   },
 
   uploadAvatar: async (file: File) => {
-    set({ isUploadingAvatar: true, error: null });
+    set({ isUploadingAvatar: true, avatarError: null });
     try {
+      const avatar = await prepareAvatarImage(file);
       const formData = new FormData();
-      formData.append("avatar", file);
-      const res = await axiosInstance.post("/user/avatar", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      formData.append("avatar", avatar, avatar.name);
+      const res = await axiosInstance.post("/user/avatar", formData);
       set({ profile: res.data });
       return true;
     } catch (error: any) {
-      set({ error: error.response?.data?.message ?? "Failed to upload avatar" });
+      set({
+        avatarError: error.response?.data?.message ?? error.message ?? "Could not upload your photo. Please try again.",
+      });
       return false;
     } finally {
       set({ isUploadingAvatar: false });

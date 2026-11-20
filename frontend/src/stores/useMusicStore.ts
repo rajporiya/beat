@@ -1,5 +1,5 @@
 import { axiosInstance } from "@/lib/axios";
-import type { Album, Song, Stats, User } from "@/types";
+import type { Album, Podcast, Song, Stats, User, VideoMedia } from "@/types";
 import { create } from "zustand";
 
 interface MusicStore {
@@ -7,6 +7,10 @@ interface MusicStore {
     albums : Album[]
     artists : string[]
     users : User[]
+    podcasts : Podcast[]
+    videos : VideoMedia[]
+    adminPodcasts : Podcast[]
+    adminVideos : VideoMedia[]
     isLoading: boolean;
     err: string | null;
     curruntAlbum : Album | null;
@@ -20,6 +24,11 @@ interface MusicStore {
     fetchStats : () =>  Promise<void>
     fetchArtists : () =>  Promise<void>
     fetchUsers : () =>  Promise<void>
+    fetchPodcasts : () => Promise<void>
+    fetchVideos : () => Promise<void>
+    fetchAdminPodcasts : () => Promise<void>
+    fetchAdminVideos : () => Promise<void>
+    updateUserPlan : (id : string, plan : string) => Promise<boolean>
 
 
     madeForYouSongs : Song[];
@@ -35,6 +44,10 @@ export const useMusicStore = create<MusicStore>((set)=>({
     songs : [],
     artists : [],
     users : [],
+    podcasts : [],
+    videos : [],
+    adminPodcasts : [],
+    adminVideos : [],
     isLoading : false,
     err : null,
     curruntAlbum : null,
@@ -46,6 +59,12 @@ export const useMusicStore = create<MusicStore>((set)=>({
         totalAlbums : 0,
         totalUsers : 0,
         totalArtists : 0,
+        totalPodcasts : 0,
+        totalVideos : 0,
+        totalPlays : 0,
+        songPlays : 0,
+        podcastPlays : 0,
+        videoViews : 0,
     },
     // isSongsLoading : false ,
     // isStatsLoading : false ,
@@ -155,6 +174,50 @@ fetchStats : async ()=>{
             set({ users : responce.data })
         } catch (error : any) {
             console.error("Failed to fetch users:", error.response?.data?.message ?? error.message)
+        }
+    },
+    fetchPodcasts : async ()=>{
+        try {
+            const responce  = await axiosInstance.get("/podcast")
+            set({ podcasts : Array.isArray(responce.data) ? responce.data : [] })
+        } catch (error : any) {
+            console.error("Failed to fetch podcasts:", error.response?.data?.message ?? error.message)
+        }
+    },
+    fetchVideos : async ()=>{
+        try {
+            const responce  = await axiosInstance.get("/video")
+            set({ videos : Array.isArray(responce.data) ? responce.data : [] })
+        } catch (error : any) {
+            console.error("Failed to fetch videos:", error.response?.data?.message ?? error.message)
+        }
+    },
+    fetchAdminPodcasts : async ()=>{
+        try {
+            const responce  = await axiosInstance.get("/admin/podcasts")
+            set({ adminPodcasts : Array.isArray(responce.data) ? responce.data : [] })
+        } catch (error : any) {
+            console.error("Failed to fetch admin podcasts:", error.response?.data?.message ?? error.message)
+        }
+    },
+    fetchAdminVideos : async ()=>{
+        try {
+            const responce  = await axiosInstance.get("/admin/videos")
+            set({ adminVideos : Array.isArray(responce.data) ? responce.data : [] })
+        } catch (error : any) {
+            console.error("Failed to fetch admin videos:", error.response?.data?.message ?? error.message)
+        }
+    },
+    updateUserPlan : async (id, plan) => {
+        try {
+            const response = await axiosInstance.patch(`/admin/users/${id}/plan`, { plan })
+            set((state) => ({
+                users: state.users.map((user) => user._id === id ? { ...user, ...response.data } : user)
+            }))
+            return true
+        } catch (error : any) {
+            console.error("Failed to update plan:", error.response?.data?.message ?? error.message)
+            return false
         }
     }
 }))

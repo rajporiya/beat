@@ -18,6 +18,10 @@ import AdminSongsPage from "./pages/admin/AdminSongsPage"
 import AdminAlbumsPage from "./pages/admin/AdminAlbumsPage"
 import AdminArtistsPage from "./pages/admin/AdminArtistsPage"
 import AdminUsersPage from "./pages/admin/AdminUsersPage"
+import AdminPodcastsPage from "./pages/admin/AdminPodcastsPage"
+import AdminVideosPage from "./pages/admin/AdminVideosPage"
+import PlansPage from "./pages/PlansPage"
+import PlaylistPage from "./pages/PlaylistPage"
 
 const App = () => {
   return (
@@ -27,6 +31,8 @@ const App = () => {
           <Route index element={<AdminDashboard />} />
           <Route path="songs" element={<AdminSongsPage />} />
           <Route path="albums" element={<AdminAlbumsPage />} />
+          <Route path="podcasts" element={<AdminPodcastsPage />} />
+          <Route path="videos" element={<AdminVideosPage />} />
           <Route path="artists" element={<AdminArtistsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
         </Route>
@@ -40,18 +46,20 @@ const App = () => {
         <Route path="/menu" element={<MenuPage />}/>
         
         <Route element={<MainLayout />}>
-          <Route path="/" element={<Navigate to="/home" replace />}/>
-          <Route path="/home" element={<HomePage />}/>
+          <Route path="/" element={<Navigate to="/home" replace />}/>          <Route path="/home" element={<HomePage />}/>
           <Route path="/search" element={<SearchPage />}/>
           <Route path="/library" element={<LibraryPage />}/>
           <Route path="/liked" element={<CollectionPage type="liked" />}/>
           <Route path="/recently-played" element={<CollectionPage type="recent" />}/>
           <Route path="/artist/:artistId" element={<ArtistPage />}/>
-          <Route path="/playlist/:playlistId" element={<CollectionPage type="liked" />}/>
+          <Route path="/playlist/:playlistId" element={<PlaylistPage />}/>
           <Route path="/chat" element={<ChatPage />}/>
           <Route path="/album/:albumId" element={<AlbumPage />}/>
           <Route path="/profile" element={<ProfilePage />}/>
+          <Route path="/plans" element={<PlansPage />}/>
+          <Route path="/premium" element={<Navigate to="/plans" replace />}/>
         </Route>
+        <Route path="*" element={<Navigate to="/home" replace />}/>
        </Routes>
       </>
   )

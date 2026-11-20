@@ -12,27 +12,34 @@ import {
   Search,
   Users,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuthStro } from "@/stores/useAuthStro";
 import { useUserProfileStore } from "@/stores/useUserProfileStore";
+import { useSubscriptionStore } from "@/stores/useSubscriptionStore";
+import { PlanBadge } from "@/components/PlanBadge";
+import { PLAN_META, isPlanId } from "@/lib/plans";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Topbar = () => {
-  const { isAdmin, checkAdminStatus } = useAuthStro();
+  const { isAdmin } = useAuthStro();
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const { profile, fetchProfile } = useUserProfileStore();
+  const { plan, entitlements } = useSubscriptionStore();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const activePlan = isPlanId(plan) ? plan : isPlanId(user?.plan) ? user.plan : "free";
+  const planMeta = PLAN_META[activePlan];
 
   useEffect(() => {
-    if (isSignedIn) {
-      checkAdminStatus();
-      if (!profile) fetchProfile();
+    if (isSignedIn && !profile) {
+      fetchProfile();
     }
-  }, [isSignedIn, checkAdminStatus, fetchProfile, profile]);
+  }, [isSignedIn, fetchProfile, profile]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +74,26 @@ export const Topbar = () => {
             />
           </div>
         </Link>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
+            title="Go back"
+            className="grid size-8 place-items-center rounded-full bg-black/60 text-zinc-300 transition-colors hover:bg-[#2a2a2a] hover:text-white"
+          >
+            <ChevronLeft className="size-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(1)}
+            aria-label="Go forward"
+            title="Go forward"
+            className="grid size-8 place-items-center rounded-full bg-black/60 text-zinc-300 transition-colors hover:bg-[#2a2a2a] hover:text-white"
+          >
+            <ChevronRight className="size-5" />
+          </button>
+        </div>
         {isAdmin && (
           <Link
             to="/admin"
@@ -120,19 +147,36 @@ export const Topbar = () => {
         </Link>
       </div>
 
-      {/* RIGHT: Premium, Install, Bell, Friends, Avatar */}
+      {/* RIGHT: Plan, Install, Bell, Friends, Avatar */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* Explore Premium */}
+        {/* Plan / upgrade */}
         <SignedIn>
-          <a
-            href="#premium"
-            className="hidden lg:flex items-center gap-1.5 rounded-full border border-zinc-400 px-3.5 py-1.5 text-xs font-bold text-white hover:border-white hover:scale-105 transition-all whitespace-nowrap"
+          <Link
+            to="/plans"
+            className="hidden lg:flex items-center gap-2 rounded-full border border-zinc-400/70 px-2 py-1 text-xs font-bold text-white hover:border-white hover:scale-105 transition-all whitespace-nowrap"
+            title="Manage your BeatMusic plan"
           >
-            Explore Premium
-          </a>
+            <PlanBadge plan={activePlan} size="xs" />
+            <span className="pr-1">{activePlan === "free" || activePlan === "basic" ? "Upgrade" : "Manage"}</span>
+          </Link>
+          {!entitlements.adsFree && (
+            <Link
+              to="/plans"
+              title="This account is ad-supported"
+              className="hidden xl:flex items-center rounded-full bg-fuchsia-500/15 border border-fuchsia-400/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-300 hover:bg-fuchsia-500/25 transition-colors"
+            >
+              Ads
+            </Link>
+          )}
         </SignedIn>
 
         <SignedOut>
+          <Link
+            to="/plans"
+            className="hidden lg:flex items-center gap-1.5 rounded-full border border-zinc-400 px-3.5 py-1.5 text-xs font-bold text-white hover:border-white hover:scale-105 transition-all whitespace-nowrap"
+          >
+            Explore Plans
+          </Link>
           <Link
             to="/login"
             className="hidden sm:flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-black hover:scale-105 transition-all whitespace-nowrap"
@@ -179,7 +223,7 @@ export const Topbar = () => {
             title="Your profile"
             className="rounded-full focus:outline-none"
           >
-            <Avatar className="size-8 ring-2 ring-[#863bff]/60 transition-all hover:ring-[#863bff]">
+            <Avatar className={`size-8 ring-2 ${planMeta.ringClass} transition-all hover:ring-white/80`}>
               {avatarUrl ? <AvatarImage key={avatarUrl} src={avatarUrl} alt={displayName} /> : null}
               <AvatarFallback className="bg-[#242424] text-xs font-bold text-white">{initials}</AvatarFallback>
             </Avatar>

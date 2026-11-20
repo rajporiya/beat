@@ -1,7 +1,7 @@
-import { Heart, Home, Library, Search } from "lucide-react";
+import { Home, Library, Search, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-const links = [{ to: "/home", label: "Home", icon: Home }, { to: "/search", label: "Search", icon: Search }, { to: "/library", label: "Library", icon: Library }, { to: "/liked", label: "Liked", icon: Heart }];
+const links = [{ to: "/home", label: "Home", icon: Home }, { to: "/search", label: "Search", icon: Search }, { to: "/library", label: "Library", icon: Library }, { to: "/plans", label: "Plans", icon: Sparkles }];
 
 export default function MobileNav() {
   return <nav className="fixed bottom-0 left-0 z-30 flex h-16 w-full items-center justify-around border-t border-white/10 bg-[#121212]/95 px-2 backdrop-blur md:hidden">

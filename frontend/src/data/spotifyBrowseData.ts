@@ -34,6 +34,7 @@ export interface PodcastEpisode {
   videoThumbnailUrl: string;
   videoUrl?: string;
   audioUrl: string;
+  isManaged?: boolean;
 }
 
 export interface PodcastSectionItem {
@@ -258,7 +259,7 @@ export const MORE_LIKE_ITEMS: Song[] = [
 export const PODCAST_EPISODES: PodcastEpisode[] = [
   {
     id: "pod-1",
-    title: "David Goggins Motivation - Why 99% Of Men Are Lost I...",
+    title: "David Goggins Motivation - Why 99% Of Men Are Lost In 2026",
     showName: "David Speech",
     subtitle: "▶ Video • David Speech",
     publishDate: "Sep 23",

@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Play, Pause } from "lucide-react";
 import type { PodcastEpisode } from "@/data/spotifyBrowseData";
 import { usePlayStore } from "@/stores/usePlayerStore";
+import DownloadButton from "@/components/DownloadButton";
+import HoverVideoPreview from "@/components/music/HoverVideoPreview";
+import { DEMO_VIDEO_URL } from "@/lib/plans";
 import type { Song } from "@/types";
 
 interface PodcastCardProps {
@@ -10,6 +14,8 @@ interface PodcastCardProps {
 
 export default function PodcastCard({ episode, onOpenVideo }: PodcastCardProps) {
   const { currentSong, isPlaying, setCurrentSong, togglePlay } = usePlayStore();
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
 
   const isCurrent = currentSong?.title.toLowerCase() === episode.title.toLowerCase();
   const isCurrentlyPlaying = isCurrent && isPlaying;
@@ -88,8 +94,12 @@ export default function PodcastCard({ episode, onOpenVideo }: PodcastCardProps) 
       {/* Middle: 16:9 Video Frame */}
       <div
         className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/60 my-3 sm:my-4 shadow-lg group/video cursor-pointer"
+        onMouseEnter={() => setIsPreviewing(true)}
+        onMouseLeave={() => setIsPreviewing(false)}
         onClick={(e) => {
           e.stopPropagation();
+          setIsPreviewing(false);
+          setIsPreviewPlaying(false);
           if (onOpenVideo) {
             onOpenVideo(episode);
           } else {
@@ -104,8 +114,20 @@ export default function PodcastCard({ episode, onOpenVideo }: PodcastCardProps) 
           loading="lazy"
         />
 
+        <HoverVideoPreview
+          src={episode.videoUrl}
+          poster={episode.videoThumbnailUrl}
+          active={isPreviewing}
+          onPreviewChange={setIsPreviewPlaying}
+          className="group-hover/video:scale-102"
+        />
+
         {/* Video Overlay / Play indicator */}
-        <div className="absolute inset-0 bg-black/20 group-hover/video:bg-black/40 transition-colors flex items-center justify-center">
+        <div
+          className={`pointer-events-none absolute inset-0 transition-colors flex items-center justify-center ${
+            isPreviewPlaying ? "bg-black/10" : "bg-black/20 group-hover/video:bg-black/40"
+          }`}
+        >
           <div
             className={`size-12 rounded-full flex items-center justify-center shadow-xl transition-all duration-200 ${
               isCurrentlyPlaying
@@ -121,9 +143,16 @@ export default function PodcastCard({ episode, onOpenVideo }: PodcastCardProps) 
           </div>
         </div>
 
+        {isPreviewPlaying && (
+          <div className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/75 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+            <span className="size-1 animate-pulse rounded-full bg-[#1ed760]" />
+            Preview
+          </div>
+        )}
+
         {/* Video tag badge in corner */}
-        <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-sm bg-black/80 backdrop-blur-xs text-[10px] font-bold text-white uppercase tracking-wider">
-          Video Episode
+        <div className="pointer-events-none absolute bottom-2 left-2 px-2 py-0.5 rounded-sm bg-black/80 backdrop-blur-xs text-[10px] font-bold text-white uppercase tracking-wider">
+          {episode.videoUrl ? "Video Episode" : "Audio Episode"}
         </div>
       </div>
 
@@ -135,6 +164,40 @@ export default function PodcastCard({ episode, onOpenVideo }: PodcastCardProps) 
           </span>
           {episode.description}
         </p>
+      </div>
+
+      {/* Downloads: podcast audio and video require Pro */}
+      <div
+        className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="text-[9px] font-bold uppercase tracking-widest text-white/50">
+          Downloads
+        </span>
+        <DownloadButton
+          kind="podcast"
+          title={episode.title}
+          mediaUrl={episode.audioUrl}
+          label="Audio"
+          variant="small"
+        />
+        {episode.videoUrl ? (
+          <DownloadButton
+            kind="video"
+            title={episode.title}
+            mediaUrl={episode.videoUrl}
+            label="Video"
+            variant="small"
+          />
+        ) : !episode.isManaged ? (
+          <DownloadButton
+            kind="video"
+            title={episode.title}
+            mediaUrl={DEMO_VIDEO_URL}
+            label="Video"
+            variant="small"
+          />
+        ) : null}
       </div>
     </div>
   );

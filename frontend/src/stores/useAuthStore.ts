@@ -11,6 +11,9 @@ export interface User {
   imageUrl?: string;
   role: string;
   isAdmin: boolean;
+  plan?: string;
+  planBillingCycle?: string;
+  planExpiresAt?: string | null;
   createdAt?: string;
 }
 
@@ -29,6 +32,9 @@ const normalizeUser = (u: any): User | null => {
     imageUrl: u.imageUrl || u.avatar || "",
     role: u.role || "user",
     isAdmin: Boolean(u.isAdmin || u.role === "admin"),
+    plan: u.plan || "free",
+    planBillingCycle: u.planBillingCycle || "monthly",
+    planExpiresAt: u.planExpiresAt || null,
   };
 };
 

@@ -1,16 +1,25 @@
 import { useState, useMemo } from "react";
 import {
   ChevronLeft,
-  Heart,
   MoreHorizontal,
   Check,
   Play,
   ListMusic,
   Sparkles,
   X,
+  Lock,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { usePlayStore } from "@/stores/usePlayerStore";
+import SongArtwork from "@/components/music/SongArtwork";
+import { selectNextSong, usePlayStore } from "@/stores/usePlayerStore";
+import { useFollowStore } from "@/stores/useFollowStore";
+import { useAuthStore } from "@/stores/useAuthStore";
+import LikeButton from "@/components/LikeButton";
+import { useNavigate } from "react-router-dom";
+import { useSubscriptionStore } from "@/stores/useSubscriptionStore";
+import { useUpgradeStore } from "@/stores/useUpgradeStore";
+import AdBanner from "@/components/AdBanner";
+import DownloadButton from "@/components/DownloadButton";
 import { getFallbackArtwork } from "@/lib/songArtwork";
 import {
   getArtistDetailsForSong,
@@ -40,13 +49,17 @@ const DEFAULT_PREVIEW_SONG: Song = SPOTIFY_POPULAR_ALBUMS.find(
   };
 
 const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
-  const { currentSong, queue, currentIndex, setCurrentSong } =
-    usePlayStore();
+  const { currentSong, playNext } = usePlayStore();
+  const nextSong = usePlayStore(selectNextSong);
+  const { entitlements } = useSubscriptionStore();
+  const openUpgrade = useUpgradeStore((state) => state.open);
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const followedArtists = useFollowStore((state) => state.artists);
+  const toggleFollow = useFollowStore((state) => state.toggleFollow);
 
-  const [isHovered, setIsHovered] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
   const [expandedLyrics, setExpandedLyrics] = useState(false);
+  const canViewLyrics = entitlements.lyrics;
 
   // Active song to display (defaults to preview song if player hasn't started yet)
   const activeSong: Song = currentSong || DEFAULT_PREVIEW_SONG;
@@ -66,20 +79,11 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
     [activeSong.title, activeSong.artist]
   );
 
-  const nextSong = useMemo(() => {
-    if (queue && queue.length > 0 && currentIndex >= 0 && currentIndex < queue.length - 1) {
-      return queue[currentIndex + 1];
-    }
-    return null;
-  }, [queue, currentIndex]);
+  const isFollowing = followedArtists.includes(activeSong.artist);
 
   return (
     <aside
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`h-full relative bg-[#121212] rounded-lg overflow-hidden flex flex-col shrink-0 select-none border border-zinc-900/80 transition-[width] duration-300 ease-out ${
-        isHovered ? "w-[325px]" : "w-[275px]"
-      }`}
+      className="h-full relative w-[275px] bg-[#121212] rounded-lg overflow-hidden flex flex-col shrink-0 select-none border border-zinc-900/80"
       aria-label="Now Playing Sidebar"
     >
       {/* Middle collapse chevron button on left edge (matching photo `<`) */}
@@ -88,7 +92,7 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
         onClick={onCollapse}
         title="Collapse Now Playing"
         aria-label="Collapse Now Playing"
-        className="absolute left-1.5 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center size-6 bg-[#181818]/90 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-full transition-all shadow-xl cursor-pointer border border-zinc-700/60 hover:scale-110 active:scale-95 group/btn"
+        className="absolute left-1.5 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center size-6 bg-[#181818]/90 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-full transition-all shadow-xl cursor-pointer border border-zinc-700/60 group/btn"
       >
         <ChevronLeft className="size-4 group-hover/btn:-translate-x-0.5 transition-transform" />
       </button>
@@ -131,17 +135,13 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
       <ScrollArea className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4">
           {/* Main Album Artwork */}
-          <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-zinc-900 shadow-2xl group/cover border border-zinc-800/50">
-            <img
-              src={activeSong.imageUrl || getFallbackArtwork(activeSong.title)}
-              alt={activeSong.title}
-              className="size-full object-cover transition-transform duration-500 group-hover/cover:scale-105"
-              onError={(e) => {
-                e.currentTarget.src = getFallbackArtwork(activeSong.title);
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
-          </div>
+          <SongArtwork
+            song={activeSong}
+            className="aspect-square w-full rounded-lg overflow-hidden bg-zinc-900 shadow-2xl border border-zinc-800/50"
+            imageClassName="size-full object-cover"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+          </SongArtwork>
 
           {/* Song Title, Artist & Like Action */}
           <div className="flex items-center justify-between gap-3">
@@ -160,52 +160,81 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsLiked((prev) => !prev)}
-              title={isLiked ? "Remove from Liked Songs" : "Save to Your Library"}
-              className="p-2 rounded-full text-zinc-400 hover:text-white transition-colors cursor-pointer hover:scale-110 active:scale-95 shrink-0"
-            >
-              <Heart
-                className={`size-5 transition-colors ${
-                  isLiked
-                    ? "fill-[#1ed760] text-[#1ed760]"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              />
-            </button>
+            <LikeButton song={activeSong} className="shrink-0" />
+
+            <DownloadButton
+              kind="song"
+              title={activeSong.title}
+              mediaUrl={activeSong.audioUrl}
+              className="shrink-0"
+            />
           </div>
 
           {/* Lyrics Card (matching photo layout) */}
           <div
-            onClick={() => setExpandedLyrics((prev) => !prev)}
+            onClick={() => {
+              if (!canViewLyrics) {
+                openUpgrade("basic", "Full lyrics");
+                return;
+              }
+              setExpandedLyrics((prev) => !prev);
+            }}
             className="group/lyrics relative overflow-hidden rounded-xl bg-gradient-to-b from-[#2a1720] via-[#201319] to-[#150e12] border border-pink-950/40 p-4 cursor-pointer hover:border-pink-900/60 transition-all shadow-md"
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-pink-200">
                 Lyrics
               </span>
-              <span className="text-[11px] text-zinc-400 group-hover/lyrics:text-white transition-colors font-medium">
-                {expandedLyrics ? "Show less" : "Show more"}
-              </span>
+              {canViewLyrics ? (
+                <span className="text-[11px] text-zinc-400 group-hover/lyrics:text-white transition-colors font-medium">
+                  {expandedLyrics ? "Show less" : "Show more"}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 rounded-full border border-pink-400/25 bg-pink-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-pink-200">
+                  <Lock className="size-2.5" />
+                  Basic
+                </span>
+              )}
             </div>
 
-            <div className="space-y-1.5 transition-all">
-              {(expandedLyrics ? lyrics : lyrics.slice(0, 4)).map((line, idx) => (
-                <p
-                  key={idx}
-                  className={`font-semibold text-base leading-snug tracking-tight transition-colors ${
-                    idx === 0
-                      ? "text-white"
-                      : idx === 1
-                      ? "text-zinc-200"
-                      : "text-zinc-400"
-                  }`}
-                >
-                  {line}
-                </p>
-              ))}
-            </div>
+            {canViewLyrics ? (
+              <div className="space-y-1.5 transition-all">
+                {(expandedLyrics ? lyrics : lyrics.slice(0, 4)).map((line, idx) => (
+                  <p
+                    key={idx}
+                    className={`font-semibold text-base leading-snug tracking-tight transition-colors ${
+                      idx === 0
+                        ? "text-white"
+                        : idx === 1
+                        ? "text-zinc-200"
+                        : "text-zinc-400"
+                    }`}
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="space-y-1.5 opacity-50 blur-[3px] select-none pointer-events-none">
+                  {lyrics.slice(0, 4).map((line, idx) => (
+                    <p
+                      key={idx}
+                      className={`font-semibold text-base leading-snug tracking-tight ${
+                        idx === 0 ? "text-white" : "text-zinc-400"
+                      }`}
+                    >
+                      {line}
+                    </p>
+                  ))}
+                </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-black/25">
+                  <Lock className="size-4 text-pink-200" />
+                  <p className="text-xs font-bold text-white">Lyrics with Basic</p>
+                  <p className="text-[10px] text-zinc-400">Upgrade to reveal full lyrics</p>
+                </div>
+              </div>
+            )}
 
             {/* Subtle ambient glow */}
             <div className="absolute -right-8 -bottom-8 size-24 bg-pink-600/10 rounded-full blur-2xl pointer-events-none" />
@@ -248,13 +277,13 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
           </div>
 
           {/* About the Artist Card (matching photo layout) */}
-          <div className="rounded-xl bg-[#1e1e1e] hover:bg-[#222222] border border-zinc-800/60 overflow-hidden transition-all shadow-md group/artist">
+          <div className="rounded-xl bg-[#1e1e1e] hover:bg-[#222222] border border-zinc-800/60 overflow-hidden transition-colors shadow-md">
             {/* Artist Cover / Header */}
             <div className="relative h-24 w-full bg-zinc-800 overflow-hidden">
               <img
                 src={artistDetails.avatarUrl}
                 alt={artistDetails.name}
-                className="size-full object-cover transition-transform duration-500 group-hover/artist:scale-105"
+                className="size-full object-cover"
                 onError={(e) => {
                   e.currentTarget.src = "/cover-images/kabir_singh.jpg";
                 }}
@@ -281,8 +310,14 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
 
                 <button
                   type="button"
-                  onClick={() => setIsFollowing((prev) => !prev)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+                  onClick={() => {
+                    if (!user) {
+                      navigate("/login");
+                      return;
+                    }
+                    void toggleFollow(activeSong.artist);
+                  }}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
                     isFollowing
                       ? "border-zinc-500 text-zinc-300 hover:border-white hover:text-white"
                       : "border-zinc-400 text-white hover:border-white"
@@ -315,7 +350,7 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setCurrentSong(nextSong)}
+                  onClick={() => playNext()}
                   className="text-[11px] font-semibold text-[#1ed760] hover:underline cursor-pointer"
                 >
                   Play next
@@ -323,7 +358,7 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
               </div>
 
               <div
-                onClick={() => setCurrentSong(nextSong)}
+                onClick={() => playNext()}
                 className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-zinc-800/60 transition-colors cursor-pointer group/next"
               >
                 <div className="relative size-10 rounded-md overflow-hidden bg-zinc-800 shrink-0">
@@ -350,6 +385,9 @@ const NowPlayingSidebar = ({ onCollapse }: NowPlayingSidebarProps) => {
               </div>
             </div>
           )}
+
+          {/* Ad for the ad-supported Normal plan */}
+          <AdBanner compact />
         </div>
       </ScrollArea>
     </aside>

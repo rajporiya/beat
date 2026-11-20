@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Camera, Loader2, LogOut, Mail, Save, TriangleAlert, User as UserIcon } from "lucide-react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Camera, Check, Crown, Download, Loader2, LogOut, Mail, Save, Sparkles, TriangleAlert, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUserProfileStore } from "@/stores/useUserProfileStore";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useSubscriptionStore } from "@/stores/useSubscriptionStore";
+import { PlanBadge } from "@/components/PlanBadge";
+import { PLAN_META, isPlanId, planById } from "@/lib/plans";
 
 const inputClass =
   "mt-2 w-full rounded-md border border-zinc-600 bg-[#242424] p-3 text-sm text-white outline-none focus:border-[#22c55e] disabled:opacity-60";
@@ -16,12 +19,22 @@ export default function ProfilePage() {
     isUpdating,
     isUploadingAvatar, 
     error,
+    avatarError,
     fetchProfile,
     updateProfile,
     uploadAvatar,
     logout: profileLogout,
   } = useUserProfileStore();
   const { user, logout: authLogout, setUser } = useAuthStore();
+  const {
+    plans,
+    plan,
+    subscription,
+    entitlements,
+    downloads,
+    fetchSubscription,
+    fetchDownloads,
+  } = useSubscriptionStore();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -40,11 +53,22 @@ export default function ProfilePage() {
     void loadProfile();
   }, [fetchProfile]);
 
-  // Prefill form when profile arrives
   useEffect(() => {
+    if (user) {
+      fetchSubscription();
+      fetchDownloads();
+    }
+  }, [user, fetchSubscription, fetchDownloads]);
+
+  // Prefill the form once when the profile first loads. Later profile updates
+  // (such as a new avatar) must not overwrite what the user is typing.
+  const formSeededRef = useRef(false);
+  useEffect(() => {
+    if (formSeededRef.current) return;
     if (profile) {
       setFullName(profile.fullName ?? "");
       setEmail(profile.email ?? "");
+      formSeededRef.current = true;
     } else if (user) {
       setFullName(user.fullName ?? "");
       setEmail(user.email ?? "");
@@ -61,8 +85,8 @@ export default function ProfilePage() {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      await authLogout();
       await profileLogout();
+      await authLogout();
     } finally {
       navigate("/login");
     }
@@ -73,16 +97,6 @@ export default function ProfilePage() {
     event.target.value = "";
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setFormError("Please choose an image file (PNG, JPG, etc.)");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setFormError("Image must be smaller than 5MB");
-      return;
-    }
-
-    setFormError(null);
     setSuccess(null);
     const ok = await uploadAvatar(file);
     if (ok) {
@@ -120,6 +134,10 @@ export default function ProfilePage() {
     }
   };
 
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   if ((isProfileLoading || !loaded) && !profile) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-zinc-400">
@@ -154,11 +172,22 @@ export default function ProfilePage() {
       .join("") || "U";
 
   const avatarUrl = profile.imageUrl || user?.imageUrl;
+  const activePlan = isPlanId(plan) ? plan : isPlanId(profile.plan) ? profile.plan : isPlanId(user?.plan) ? user.plan : "free";
+  const planMeta = PLAN_META[activePlan];
+  const planDefinition = planById(plans, activePlan);
+  const renewsOn = subscription?.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : null;
+  const downloadSummary = entitlements.podcastDownloads
+    ? "All downloads"
+    : entitlements.songDownloads
+      ? "MP3 downloads"
+      : "No downloads";
 
   return (
     <div className="mx-auto w-full max-w-2xl overflow-y-auto p-5 sm:p-8">
       <h1 className="text-2xl font-black text-white sm:text-3xl">Account Overview</h1>
-      <p className="mt-1 text-sm text-zinc-400">Manage your personal information and profile photo.</p>
+      <p className="mt-1 text-sm text-zinc-400">Manage your personal information, profile photo and plan.</p>
 
       {error && !formError && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-400">
@@ -167,11 +196,94 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Plan identity */}
+      <section className={`mt-6 overflow-hidden rounded-2xl border bg-gradient-to-br p-6 ${planMeta.borderClass} ${planMeta.gradientClass}`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Your plan</p>
+            <div className="mt-2 flex items-center gap-2">
+              <PlanBadge plan={activePlan} size="md" />
+              <h2 className="text-xl font-black text-white">{planDefinition.name}</h2>
+            </div>
+            <p className="mt-1 text-sm text-zinc-400">{planDefinition.subtitle}</p>
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-400">
+              {activePlan === "free" ? (
+                <>Ad-supported listening · upgrade to go ad-free</>
+              ) : renewsOn ? (
+                <>
+                  <Check className="size-3.5 text-emerald-400" />
+                  Active · renews {renewsOn}
+                </>
+              ) : (
+                <>
+                  <Check className="size-3.5 text-emerald-400" />
+                  Active plan
+                </>
+              )}
+            </p>
+          </div>
+          <Link
+            to="/plans"
+            className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-transform hover:scale-[1.03] ${
+              activePlan === "pro"
+                ? "bg-gradient-to-r from-amber-300 to-orange-400 text-black"
+                : activePlan === "free"
+                  ? "bg-white text-black"
+                  : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            {activePlan === "free" ? <Sparkles className="size-3.5" /> : <Crown className="size-3.5" />}
+            {activePlan === "free" || activePlan === "basic" ? "Upgrade plan" : "Manage plan"}
+          </Link>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            entitlements.adsFree ? "Ad-free" : "Ads supported",
+            entitlements.audioQuality,
+            downloadSummary,
+            `${entitlements.devices} ${entitlements.devices === 1 ? "device" : "devices"}`,
+          ].map((item) => (
+            <div key={item} className="rounded-lg border border-white/10 bg-black/25 px-2.5 py-2 text-center text-[11px] font-semibold text-zinc-300">
+              {item}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Recent downloads (Premium / Pro) */}
+      {downloads.length > 0 && (
+        <section className="mt-4 rounded-2xl bg-[#181818] p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+              <Download className="size-4 text-emerald-400" />
+              Recent downloads
+            </h2>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-zinc-300">
+              {downloads.length}
+            </span>
+          </div>
+          <ul className="mt-3 divide-y divide-white/5">
+            {downloads.slice(0, 5).map((item) => (
+              <li key={item._id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white">{item.title}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-zinc-500">{item.type} · {item.plan}</p>
+                </div>
+                <span className="shrink-0 text-[11px] text-zinc-500">
+                  {new Date(item.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Avatar section */}
       <section className="mt-6 rounded-2xl bg-[#181818] p-6">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
           <div className="relative">
-            <Avatar className="size-24">
+            <Avatar className={`size-24 ring-2 ring-offset-2 ring-offset-[#181818] ${planMeta.ringClass}`}>
               {avatarUrl ? (
                 <AvatarImage key={avatarUrl} src={avatarUrl} alt={profile.fullName} />
               ) : null}
@@ -205,7 +317,10 @@ export default function ProfilePage() {
           </div>
 
           <div className="min-w-0 flex-1 text-center sm:text-left">
-            <p className="truncate text-lg font-bold text-white">{profile.fullName}</p>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+              <p className="truncate text-lg font-bold text-white">{profile.fullName}</p>
+              <PlanBadge plan={activePlan} size="xs" />
+            </div>
             <p className="truncate text-sm text-zinc-400">{profile.email}</p>
             <button
               type="button"
@@ -218,6 +333,13 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
+
+      {avatarError && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-400">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          {avatarError}
+        </div>
+      )}
 
       {/* Details form */}
       <section className="mt-4 rounded-2xl bg-[#181818] p-6">

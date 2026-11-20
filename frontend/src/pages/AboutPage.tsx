@@ -37,7 +37,7 @@ export const AboutPage: React.FC = () => {
         {/* Right Nav Links */}
         <nav className="flex items-center gap-5 sm:gap-7 text-sm font-bold tracking-tight">
           <Link
-            to="/info/premium"
+            to="/plans"
             className="text-white hover:text-[#863bff] transition-colors hidden sm:inline"
           >
             Premium plans

@@ -3,10 +3,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import AddToPlaylistModal from "@/components/AddToPlaylistModal";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { usePlayStore } from "@/stores/usePlayerStore";
-import { Clock, Pause, Play, Plus } from "lucide-react";
+import { Clock, ListPlus, Pause, Play, Plus } from "lucide-react";
+import LikeButton from "@/components/LikeButton";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { Song as SongType } from "@/types";
+import DownloadButton from "@/components/DownloadButton";
 
   export const formateDuration = (second: number) => {
   if (!Number.isFinite(second) || second < 0) second = 0;
@@ -18,7 +20,7 @@ import type { Song as SongType } from "@/types";
 const AlbumPage = () => {
   const { albumId } = useParams<{ albumId: string }>();
   const { fetchAlbumId, curruntAlbum, isLoading, err } = useMusicStore();
-  const  { currentSong, isPlaying,playerAlbum, togglePlay, setCurrentSong}= usePlayStore()
+  const  { currentSong, isPlaying, playerAlbum, togglePlay, addToQueue }= usePlayStore()
   const [playlistSong, setPlaylistSong] = useState<SongType | null>(null);
 
   useEffect(() => {
@@ -122,7 +124,7 @@ const handlePlayAlbums = ()=>{
                   return (
                   <div 
                     key={song._id}
-                    onClick={() => setCurrentSong(song)}
+                    onClick={() => playerAlbum(curruntAlbum?.songs ?? [], index)}
                     className={`grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-4 py-2 text-sm text-zinc-400 hover:bg-white/5 rounded-md group cursor-pointer`}
                   >
                     <div className="flex items-center justify-center">
@@ -146,20 +148,40 @@ const handlePlayAlbums = ()=>{
                       <div>{song.artist}</div>
                     </div>
                     <div className="flex items-center">{song.createdAt.split("T")[0]}</div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span>{formateDuration(song.duration)}</span>
-                      <button
-                        type="button"
-                        title="Add to playlist"
-                        aria-label={`Add ${song.title} to playlist`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setPlaylistSong(song);
-                        }}
-                        className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-                      >
-                        <Plus className="h-4 w-4 text-zinc-400 hover:text-white" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <LikeButton song={song} />
+                        <DownloadButton
+                          kind="song"
+                          title={song.title}
+                          mediaUrl={song.audioUrl}
+                        />
+                        <button
+                          type="button"
+                          title="Add to queue"
+                          aria-label={`Add ${song.title} to queue`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addToQueue(song);
+                          }}
+                          className="opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
+                        >
+                          <ListPlus className="h-4 w-4 text-zinc-400 hover:text-white" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Add to playlist"
+                          aria-label={`Add ${song.title} to playlist`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPlaylistSong(song);
+                          }}
+                          className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                        >
+                          <Plus className="h-4 w-4 text-zinc-400 hover:text-white" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )})}
