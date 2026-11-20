@@ -29,6 +29,32 @@ All new endpoints use the `/api/v1` prefix and return `{ success, message, data 
 | POST/GET/DELETE | `/history/:songId`, `/history` | Authenticated | Listening history |
 | POST | `/uploads/avatar|song|album-cover|artist-cover` | Admin | Multipart field: `file` (10 MB max) |
 
+## Subscriptions and Razorpay payments
+
+Plans are defined in `src/config/plans.js`. Paid plans can be purchased through Razorpay Checkout (test mode when `RAZORPAY_API_KEY` starts with `rzp_test_`).
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/subscription/plans` | Public | Plan catalog and whether Razorpay is configured |
+| GET | `/api/subscription/me` | Authenticated | Current plan, entitlements and payment history |
+| POST | `/api/subscription/razorpay/order` | Authenticated | Body: `planId` (`basic`/`premium`/`pro`), `billingCycle` (`monthly`/`yearly`). Returns `keyId`, `orderId`, `amount` (paise) and prefill data |
+| POST | `/api/subscription/razorpay/verify` | Authenticated | Body: `razorpay_order_id`, `razorpay_payment_id`, `razorpay_signature` from Checkout. Verifies the HMAC and activates the plan |
+| POST | `/api/subscription/razorpay/webhook` | Razorpay | Raw JSON webhook; verifies `x-razorpay-signature` with `RAZORPAY_WEBHOOK_SECRET` |
+| POST | `/api/subscription/subscribe` | Authenticated | Demo activation, only when Razorpay is **not** configured |
+| POST | `/api/subscription/cancel` | Authenticated | Ends the paid plan immediately |
+| GET | `/api/subscription/downloads` | Authenticated | Recent download history |
+
+Set these in `backend/.env`:
+
+```env
+RAZORPAY_API_KEY=rzp_test_xxxxxxxxxxxxx
+RAZORPAY_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+# Optional, only if you configure a webhook URL in the Razorpay dashboard
+RAZORPAY_WEBHOOK_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Test-mode checkout accepts UPI/card/netbanking test details from the Razorpay dashboard and never charges real money.
+
 ## Podcasts, videos and admin uploads
 
 The admin panel uses the `/api/admin` routes with `Authorization: Bearer <token>` (or the login cookie). Multipart uploads accept files up to `MAX_UPLOAD_MB` (default 100 MB) and are stored on Cloudinary.

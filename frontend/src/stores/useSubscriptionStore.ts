@@ -10,6 +10,11 @@ import {
   type PlanDefinition,
   type PlanId,
 } from "@/lib/plans";
+import {
+  loadRazorpayCheckout,
+  openRazorpayCheckout,
+  type RazorpaySuccessResponse,
+} from "@/lib/razorpay";
 import { create } from "zustand";
 
 export interface SubscriptionRecord {
@@ -141,29 +146,118 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
   subscribe: async (planId, billingCycle) => {
     set({ isChanging: true, error: null });
-    try {
-      const res = await axiosInstance.post("/subscription/subscribe", {
-        planId,
-        billingCycle,
-      });
-      const data = res.data?.data;
-      const plan: PlanId = isPlanId(data?.plan) ? data.plan : planId;
-      const definition = planById(get().plans, plan);
 
+    const applyCheckoutResult = (data: any, fallbackPlan: PlanId) => {
+      const nextPlan: PlanId = isPlanId(data?.plan) ? data.plan : fallbackPlan;
+      const definition = planById(get().plans, nextPlan);
       set({
-        plan,
+        plan: nextPlan,
         entitlements: (data?.entitlements as Entitlements) ?? definition.entitlements,
         subscription: data?.subscription ?? null,
         isChanging: false,
         error: null,
       });
-      applyPlanToAuthUser(plan, data?.subscription?.currentPeriodEnd ?? null);
+      applyPlanToAuthUser(nextPlan, data?.subscription?.currentPeriodEnd ?? null);
+    };
+
+    try {
+      let order: any;
+      try {
+        const orderRes = await axiosInstance.post("/subscription/razorpay/order", {
+          planId,
+          billingCycle,
+        });
+        order = orderRes.data?.data;
+      } catch (error: any) {
+        // Deployments without Razorpay keys keep the old instant-activation flow.
+        if (error?.response?.data?.code === "RAZORPAY_NOT_CONFIGURED") {
+          const demoRes = await axiosInstance.post("/subscription/subscribe", { planId, billingCycle });
+          applyCheckoutResult(demoRes.data?.data, planId);
+          await get().fetchSubscription();
+          return true;
+        }
+        throw error;
+      }
+
+      if (!order?.orderId || !order?.keyId) {
+        throw new Error("Could not start the Razorpay checkout. Please try again.");
+      }
+
+      await loadRazorpayCheckout();
+
+      const outcome = await new Promise<{ ok: boolean; message?: string; data?: any }>((resolve) => {
+        let settled = false;
+        let paymentSucceeded = false;
+
+        const finish = (result: { ok: boolean; message?: string; data?: any }) => {
+          if (settled) return;
+          settled = true;
+          resolve(result);
+        };
+
+        const checkout = openRazorpayCheckout({
+          key: order.keyId,
+          amount: order.amount,
+          currency: order.currency || "INR",
+          name: "BeatMusic",
+          description: `${order.planName ?? planId} plan · ${billingCycle}`,
+          order_id: order.orderId,
+          prefill: {
+            name: order.prefill?.name ?? "",
+            email: order.prefill?.email ?? "",
+          },
+          notes: { planId, billingCycle },
+          theme: { color: "#1ed760" },
+          handler: async (response: RazorpaySuccessResponse) => {
+            paymentSucceeded = true;
+            try {
+              const verifyRes = await axiosInstance.post("/subscription/razorpay/verify", {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              finish({ ok: true, data: verifyRes.data?.data });
+            } catch (error: any) {
+              finish({
+                ok: false,
+                message:
+                  error?.response?.data?.message ??
+                  "The payment went through but verification failed. Please contact support.",
+              });
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              if (!paymentSucceeded) {
+                finish({ ok: false, message: "Checkout was closed before the payment was completed." });
+              }
+            },
+          },
+        });
+
+        checkout.on("payment.failed", (response) => {
+          const failure = response as { error?: { description?: string } };
+          finish({
+            ok: false,
+            message: failure?.error?.description ?? "The payment failed. Please try again.",
+          });
+        });
+      });
+
+      if (!outcome.ok) {
+        throw new Error(outcome.message ?? "Payment could not be completed");
+      }
+
+      applyCheckoutResult(outcome.data, planId);
       await get().fetchSubscription();
       return true;
     } catch (error: any) {
       set({
         isChanging: false,
-        error: error?.response?.data?.message ?? "Could not activate your plan. Please try again.",
+        error:
+          error?.response?.data?.message ??
+          error?.message ??
+          "Could not activate your plan. Please try again.",
       });
       return false;
     }

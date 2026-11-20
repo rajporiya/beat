@@ -14,6 +14,7 @@ import cors from "cors"
 import cookieParser from "cookie-parser"
 import v1Routes from "./routes/v1.route.js"
 import subscriptionRoutes from './routes/subscription.route.js'
+import { razorpayWebhook } from './controller/subscription.controller.js'
 import downloadRoutes from './routes/download.route.js'
 import podcastRoutes from './routes/podcast.route.js'
 import videoRoutes from './routes/video.route.js'
@@ -28,6 +29,14 @@ app.use(
     origin: process.env.CLIENT_URL || "http://localhost:3000",
     credentials: true,
   })
+);
+
+// Razorpay webhooks need the raw body so the HMAC signature can be verified.
+// This route must be registered before the global JSON body parser.
+app.post(
+  "/api/subscription/razorpay/webhook",
+  express.raw({ type: "application/json" }),
+  razorpayWebhook
 );
 
 app.use(express.json())
@@ -57,7 +66,7 @@ app.use("/api/v1", v1Routes);
 
 app.use((err, req,res,next) =>{
     const status = err.status || 500;
-    res.status(status).json({ success: false, message: status === 500 && process.env.NODE_ENV === "production" ? "Internal server error" : err.message, error: null });
+    res.status(status).json({ success: false, message: status === 500 && process.env.NODE_ENV === "production" ? "Internal server error" : err.message, error: null, ...(err.code ? { code: err.code } : {}) });
 })
 app.listen(PORT, ()=>{
     console.log(`Server is running on port ${PORT}`);
